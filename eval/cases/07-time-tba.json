@@ -1,0 +1,9 @@
+{
+  "name": "Made-up: date given, time to be announced",
+  "title": "#9007 | PLACEMENT | PPT/Workshop/Seminars etc | CONTOSO SEMICONDUCTORS",
+  "posted_at": "2026-11-01T11:00:00+05:30",
+  "body": "Contoso Semiconductors will be conducting a Pre-Placement Talk on 6th November 2026. The timing and joining link will be communicated shortly.\n\nCDC, IIT Kharagpur\n\n01-11-2026 11:00",
+  "expect": [
+    { "kind": "ppt", "date": "2026-11-06", "start": null, "confidence": "low" }
+  ]
+}

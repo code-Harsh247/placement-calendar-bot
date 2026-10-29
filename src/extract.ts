@@ -1,6 +1,4 @@
-// Turns a notice's free text into structured events with an LLM.
-// Gemini is the primary model; Workers AI is the fallback when Gemini is unavailable
-// (rate limits, 5xx, or "location not supported" from some Cloudflare regions).
+// Turns a notice's free text into structured events with Workers AI.
 
 import type { Notice } from "./naarad";
 import { describeIst } from "./time";
@@ -14,6 +12,7 @@ export interface ExtractedEvent {
   action: Action;
   target_event_id: number | null;
   kind: Kind;
+  company: string | null; // set when one notice covers several companies
   title_hint: string | null;
   date: string | null; // YYYY-MM-DD
   start: string | null; // HH:MM, 24h IST
@@ -53,6 +52,7 @@ export const EVENTS_SCHEMA = {
           action: { type: "string", enum: [...ACTIONS] },
           target_event_id: { type: ["integer", "null"] },
           kind: { type: "string", enum: [...KINDS] },
+          company: nullableString,
           title_hint: nullableString,
           date: nullableString,
           start: nullableString,
@@ -63,7 +63,7 @@ export const EVENTS_SCHEMA = {
           confidence: { type: "string", enum: ["high", "low"] },
         },
         required: [
-          "action", "target_event_id", "kind", "title_hint", "date", "start",
+          "action", "target_event_id", "kind", "company", "title_hint", "date", "start",
           "end", "venue", "link", "note", "confidence",
         ],
       },
@@ -72,29 +72,6 @@ export const EVENTS_SCHEMA = {
   required: ["events"],
 };
 
-// Gemini's responseSchema uses the OpenAPI subset: upper-case types and `nullable`.
-type Schema = { [key: string]: unknown };
-export function toGeminiSchema(schema: Schema): Schema {
-  const out: Schema = {};
-  for (const [key, value] of Object.entries(schema)) {
-    if (key === "type") {
-      const types = Array.isArray(value) ? value : [value];
-      const real = types.filter((t) => t !== "null") as string[];
-      out.type = real[0]!.toUpperCase();
-      if (real.length < types.length) out.nullable = true;
-    } else if (key === "properties") {
-      out.properties = Object.fromEntries(
-        Object.entries(value as Record<string, Schema>).map(([k, v]) => [k, toGeminiSchema(v)]),
-      );
-    } else if (key === "items") {
-      out.items = toGeminiSchema(value as Schema);
-    } else {
-      out[key] = value;
-    }
-  }
-  return out;
-}
-
 export const SYSTEM_PROMPT = `You read placement notices from IIT Kharagpur's placement cell and extract the events a student would attend, so they can be put on a calendar.
 
 Return {"events": [...]}. Rules:
@@ -102,10 +79,11 @@ Return {"events": [...]}. Rules:
 - Resolve relative dates ("tomorrow", "this Friday") against the notice's post time. Dates are YYYY-MM-DD, times are 24-hour HH:MM in IST.
 - If a notice lists several rounds or sessions with different times, return one event per round or session.
 - If candidates are split into batches or slots with different times, return ONE event from the earliest start to the latest end, and say in "note" that the student should check which slot is theirs.
-- "known_events" lists events already on the calendar for this company. If the notice moves, postpones or changes one of them, use action "update" with its id in target_event_id and give the full new details. If it cancels one, use action "cancel" with its id. Otherwise use "create" with target_event_id null.
-- title_hint is a short name such as "Online Test", "Technical Interview" or "Pre-Placement Talk". Don't include the company name.
+- "known_events" lists events already on the calendar for this company. If the notice moves, postpones or changes one of them, use action "update" with its id in target_event_id and give the full new details. If it cancels one, use action "cancel" with its id. If it describes the same event as a known one (same kind, same day, e.g. a company's own PPT notice after a combined CDC schedule listed it), use "update" with its id instead of creating a duplicate. Otherwise use "create" with target_event_id null.
+- Some notices (e.g. a "CDC Placement Schedule") list events for several companies; the "company" field of the input is then just the notice's heading. In that case set "company" on each event to the company it is for, as written in the notice. Otherwise set "company" to null.
+- title_hint is a short name such as "Online Test", "Technical Interview" or "Pre-Placement Talk". Don't include the company name. Put role names or other details in "note", not in title_hint.
 - venue is a room or place; link is a meeting or test URL. Use null when the notice doesn't say.
-- Set confidence "low" if the date or time is ambiguous, says "TBA", or the notice says details are in an attachment.
+- confidence is about the date and start time only. Set it "low" only if they are ambiguous, say "TBA", or are said to be in an attachment. A schedule called "tentative" or "subject to change", or links/venues to be "shared separately", is still "high" when the date and time are written out. Mention "tentative" in note instead.
 - Never guess a date or time that the notice doesn't support. Use null instead.
 - If the notice has no dated event at all, return {"events": []}.`;
 
@@ -130,6 +108,21 @@ function str(v: unknown): string | null {
   return typeof v === "string" && v.trim() !== "" ? v.trim() : null;
 }
 
+// ERP notices pasted from Google Calendar invites wrap links as google.com/url?q=<real url>.
+export function unwrapLink(link: string | null): string | null {
+  if (!link) return link;
+  try {
+    const url = new URL(link);
+    const target = url.searchParams.get("q");
+    if (/(^|\.)google\.[a-z.]+$/.test(url.hostname) && url.pathname === "/url" && target && /^https?:\/\//.test(target)) {
+      return target;
+    }
+  } catch {
+    // not a URL; keep as is
+  }
+  return link;
+}
+
 // LLM output is untrusted: coerce it into well-formed events, downgrading confidence
 // when fields don't parse rather than failing the whole notice.
 export function sanitize(raw: unknown, known: KnownEvent[]): ExtractedEvent[] {
@@ -145,7 +138,8 @@ export function sanitize(raw: unknown, known: KnownEvent[]): ExtractedEvent[] {
     const validDate = date && DATE_RE.test(date) ? date : null;
     const validStart = start && TIME_RE.test(start) ? start : null;
     const validEnd = end && TIME_RE.test(end) ? end : null;
-    if (date !== validDate || start !== validStart) confidence = "low";
+    // Unparseable or missing date/time is low confidence, whatever the model said.
+    if (date !== validDate || start !== validStart || !validDate || !validStart) confidence = "low";
 
     const target = typeof item.target_event_id === "number" && knownIds.has(item.target_event_id)
       ? item.target_event_id
@@ -158,81 +152,43 @@ export function sanitize(raw: unknown, known: KnownEvent[]): ExtractedEvent[] {
       action,
       target_event_id: target,
       kind: KINDS.includes(item.kind as Kind) ? (item.kind as Kind) : "other",
+      company: str(item.company),
       title_hint: str(item.title_hint),
       date: validDate,
       start: validStart,
       end: validEnd,
       venue: str(item.venue),
-      link: str(item.link),
+      link: unwrapLink(str(item.link)),
       note: str(item.note),
       confidence,
     };
   });
 }
 
+// The Worker AI binding, or anything with the same run() shape (the eval script uses the REST API).
+export interface AiRunner {
+  run(model: string, input: unknown): Promise<unknown>;
+}
+
 export interface ExtractorConfig {
-  geminiApiKey: string;
-  geminiModel: string;
-  ai?: { run(model: string, input: unknown): Promise<unknown> };
-  workersAiModel?: string;
-  log?: (msg: string) => void;
+  ai: AiRunner;
+  model: string;
 }
 
-class GeminiUnavailable extends Error {}
-
-async function callGemini(cfg: ExtractorConfig, input: ExtractInput, fetchFn: typeof fetch): Promise<unknown> {
-  const res = await fetchFn(
-    `https://generativelanguage.googleapis.com/v1beta/models/${cfg.geminiModel}:generateContent`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": cfg.geminiApiKey },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [{ role: "user", parts: [{ text: buildUserPrompt(input) }] }],
-        generationConfig: {
-          temperature: 0,
-          responseMimeType: "application/json",
-          responseSchema: toGeminiSchema(EVENTS_SCHEMA),
-        },
-      }),
-    },
-  );
-  const text = await res.text();
-  if (!res.ok) {
-    const unavailable = res.status === 429 || res.status >= 500 || /location is not supported/i.test(text);
-    const err = `Gemini HTTP ${res.status}: ${text.slice(0, 300)}`;
-    throw unavailable ? new GeminiUnavailable(err) : new Error(err);
-  }
-  const body = JSON.parse(text) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-  const out = body.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!out) throw new GeminiUnavailable(`Gemini returned no content: ${text.slice(0, 300)}`);
-  return JSON.parse(out);
-}
-
-async function callWorkersAi(cfg: ExtractorConfig, input: ExtractInput): Promise<unknown> {
-  if (!cfg.ai || !cfg.workersAiModel) throw new Error("Workers AI fallback is not configured");
-  const result = (await cfg.ai.run(cfg.workersAiModel, {
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: buildUserPrompt(input) },
-    ],
-    response_format: { type: "json_schema", json_schema: EVENTS_SCHEMA },
-    temperature: 0,
-  })) as { response?: unknown };
-  const out = result.response;
-  return typeof out === "string" ? JSON.parse(out) : out;
-}
-
-export function llmExtractor(cfg: ExtractorConfig, fetchFn: typeof fetch = fetch): Extractor {
+export function llmExtractor(cfg: ExtractorConfig): Extractor {
   return async (input) => {
-    let raw: unknown;
-    try {
-      raw = await callGemini(cfg, input, fetchFn);
-    } catch (err) {
-      if (!(err instanceof GeminiUnavailable)) throw err;
-      cfg.log?.(`${err.message}; falling back to Workers AI`);
-      raw = await callWorkersAi(cfg, input);
-    }
+    const result = (await cfg.ai.run(cfg.model, {
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: buildUserPrompt(input) },
+      ],
+      response_format: { type: "json_schema", json_schema: EVENTS_SCHEMA },
+      temperature: 0,
+      // The default (256) truncates the JSON for a weekly CDC schedule with ~15 events.
+      max_tokens: 4096,
+    })) as { response?: unknown };
+    const out = result.response;
+    const raw = typeof out === "string" ? JSON.parse(out) : out;
     return sanitize(raw, input.known);
   };
 }

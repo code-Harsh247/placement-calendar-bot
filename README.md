@@ -5,7 +5,7 @@ Turns placement notices from [Naarad](https://github.com/metakgp/naarad) (MFTP's
 ```
 Cron (every 5 min) → Cloudflare Worker → poll Naarad /<topic>/json?since=<cursor>
   → skip everything except Schedule / Re-schedule / PPT notices (by title, no LLM call)
-  → Gemini extracts date, time, venue and link (Workers AI if Gemini is unavailable)
+  → Workers AI (Llama 3.3 70B) extracts date, time, venue and link
   → D1: is this new, or a change to an event we already created?
   → Google Calendar insert / patch → ntfy alert if a time is missing or unclear
 ```
@@ -37,15 +37,13 @@ You need Node 20+, a Cloudflare account (free plan), and a Google account.
    - **Event notifications:** add your reminders, e.g. 1 day, 1 hour and 15 minutes before. Reminders come from here, not from the bot.
    - **Integrate calendar:** copy the **Calendar ID**.
 
-### 2. Gemini
-
-Create an API key at [Google AI Studio](https://aistudio.google.com/apikey). If `gemini-2.5-flash` has been retired by the time you set this up, change `GEMINI_MODEL` in `wrangler.jsonc` to the current Flash model.
-
-### 3. Alerts
+### 2. Alerts
 
 Choose a long random topic name, e.g. `harsh-placement-bot-7f3k9q2x`, and subscribe to it on **ntfy.sh** in the ntfy app. Anyone who knows the name can read it, so keep it random.
 
-### 4. Cloudflare
+### 3. Cloudflare
+
+Workers AI is part of every Cloudflare account and needs no key: the Worker reaches it through the `AI` binding in `wrangler.jsonc`. The free plan includes 10,000 neurons a day, which covers dozens of notices. To try a different model, change `WORKERS_AI_MODEL`.
 
 ```bash
 npm install
@@ -59,7 +57,6 @@ Paste the printed `database_id` into `wrangler.jsonc`. Check that `TOPIC` matche
 npm run db:migrate
 npx wrangler secret put NAARAD_USER
 npx wrangler secret put NAARAD_PASS
-npx wrangler secret put GEMINI_API_KEY
 npx wrangler secret put GOOGLE_SA_EMAIL
 npx wrangler secret put GOOGLE_SA_KEY
 npx wrangler secret put CALENDAR_ID
@@ -71,9 +68,9 @@ npx wrangler secret put RUN_TOKEN
 - `GOOGLE_SA_KEY` is `private_key`, the whole `-----BEGIN PRIVATE KEY-----…` string. The `\n` escapes are fine.
 - `RUN_TOKEN` is any random string. It protects the manual `POST /run` endpoint.
 
-### 5. Dry run first
+### 4. Dry run first
 
-`DRY_RUN` is `"true"` in `wrangler.jsonc`. In that mode the bot polls Naarad and calls Gemini for real, but it only **logs** what it would do to the calendar, and it saves no state.
+`DRY_RUN` is `"true"` in `wrangler.jsonc`. In that mode the bot polls Naarad and calls Workers AI for real, but it only **logs** what it would do to the calendar, and it saves no state.
 
 ```bash
 npm run deploy
@@ -122,4 +119,18 @@ The source is in `src/`:
 | `pipeline.ts` | Ties everything together |
 | `index.ts` | Worker entry point |
 
-To tune the prompt (`SYSTEM_PROMPT` in `src/extract.ts`), paste real notices from the ntfy app into tests.
+### Testing extraction with the real model
+
+`npm test` mocks the LLM. To check how well the model actually parses notices, put `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` (plus `NAARAD_USER` and `NAARAD_PASS` for live mode) in `.dev.vars`. The token needs the **Workers AI** permission; use the "Workers AI" template under My Profile → API Tokens. Then:
+
+```bash
+npm run eval
+```
+This scores Workers AI on the cases in `eval/cases/`. Each case is a notice plus the events it should produce. Run a single case with `npm run eval -- reschedule`.
+
+```bash
+npm run eval:live
+```
+This runs the model on every placement notice Naarad still has cached and prints what it extracted, for you to review. The output is saved to `eval/out/`, which is gitignored.
+
+If a notice comes out wrong, copy it into a new file in `eval/cases/` with the events you expected, tweak `SYSTEM_PROMPT` in `src/extract.ts`, and rerun until it passes. Strip phone numbers and meeting passcodes before committing a case.

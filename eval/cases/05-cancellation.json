@@ -1,0 +1,12 @@
+{
+  "name": "Made-up: a PPT called off",
+  "title": "#9005 | PLACEMENT | Re-schedule | ACME ANALYTICS",
+  "posted_at": "2026-11-02T10:05:00+05:30",
+  "body": "The Pre-Placement Talk of Acme Analytics scheduled for 4th November 2026 at 6:00 PM stands cancelled due to unavoidable circumstances. Further updates, if any, will be communicated.\n\nCDC, IIT Kharagpur\n\n02-11-2026 10:05",
+  "known": [
+    { "id": 7, "kind": "ppt", "title": "ACME ANALYTICS — Pre-Placement Talk", "starts_at": "2026-11-04T18:00" }
+  ],
+  "expect": [
+    { "action": "cancel", "target_event_id": 7 }
+  ]
+}

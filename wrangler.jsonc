@@ -13,26 +13,25 @@
       "binding": "DB",
       "database_name": "placement-bot",
       // Replace with the id printed by `npx wrangler d1 create placement-bot`.
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "database_id": "1709d9d0-ad83-4175-9c25-16057f5946d5",
       "migrations_dir": "migrations"
     }
   ],
 
-  // Workers AI, used only when Gemini is unavailable.
+  // Workers AI, which reads the notices.
   "ai": { "binding": "AI" },
 
   "vars": {
     "NAARAD_URL": "https://naarad.metakgp.org",
-    // The placement topic you're subscribed to in the ntfy app.
-    "TOPIC": "kgp-mftp-placement",
-    "GEMINI_MODEL": "gemini-2.5-flash",
+    // The Naarad topic you're subscribed to. It carries every MFTP notice; non-PLACEMENT ones are skipped.
+    "TOPIC": "kgp-mftp",
     "WORKERS_AI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     "MAX_NOTICES_PER_RUN": "10",
     // "true" = log calendar actions without writing anything. Flip to "false" once a dry run looks right.
-    "DRY_RUN": "true"
+    "DRY_RUN": "false"
   }
 
   // Secrets (set with `npx wrangler secret put <NAME>`):
-  // NAARAD_USER, NAARAD_PASS, GEMINI_API_KEY, GOOGLE_SA_EMAIL, GOOGLE_SA_KEY,
+  // NAARAD_USER, NAARAD_PASS, GOOGLE_SA_EMAIL, GOOGLE_SA_KEY,
   // CALENDAR_ID, ALERT_TOPIC, RUN_TOKEN
 }

@@ -1,0 +1,10 @@
+{
+  "name": "Made-up: test and interviews for one company across two days",
+  "title": "#9010 | PLACEMENT | Schedule | TAILSPIN SYSTEMS",
+  "posted_at": "2026-11-03T12:00:00+05:30",
+  "body": "Tailspin Systems selection process:\nRound 1 - Online Coding Test: 8th November 2026, 7:00 PM to 8:30 PM (link via email).\nRound 2 - Technical Interviews (for shortlisted students): 10th November 2026 from 10:00 AM, Room S-301.\n\nCDC, IIT Kharagpur\n\n03-11-2026 12:00",
+  "expect": [
+    { "kind": "test", "date": "2026-11-08", "start": "19:00", "end": "20:30" },
+    { "kind": "interview", "date": "2026-11-10", "start": "10:00" }
+  ]
+}

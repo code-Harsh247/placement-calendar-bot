@@ -30,6 +30,9 @@ export interface Notice {
   postedAt: number; // unix seconds
 }
 
+// kgp-mftp carries internship notices too; only placement ones go on the calendar.
+export const IN_SCOPE_TYPES = new Set(["PLACEMENT"]);
+
 // The MFTP subjects that describe something you attend.
 export const IN_SCOPE_SUBJECTS = new Set(["Schedule", "Re-schedule", "PPT/Workshop/Seminars etc"]);
 

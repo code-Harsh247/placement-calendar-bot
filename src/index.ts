@@ -10,14 +10,12 @@ export interface Env {
   AI: Ai;
   NAARAD_URL: string;
   TOPIC: string;
-  GEMINI_MODEL: string;
   WORKERS_AI_MODEL: string;
   MAX_NOTICES_PER_RUN: string;
   DRY_RUN: string;
   // secrets
   NAARAD_USER: string;
   NAARAD_PASS: string;
-  GEMINI_API_KEY: string;
   GOOGLE_SA_EMAIL: string;
   GOOGLE_SA_KEY: string;
   CALENDAR_ID: string;
@@ -66,13 +64,7 @@ async function runOnce(env: Env): Promise<RunSummary> {
     store: dryRun ? readOnly(store) : store,
     poll: (since) =>
       pollNaarad({ url: env.NAARAD_URL, topic: env.TOPIC, user: env.NAARAD_USER, pass: env.NAARAD_PASS }, since),
-    extract: llmExtractor({
-      geminiApiKey: env.GEMINI_API_KEY,
-      geminiModel: env.GEMINI_MODEL,
-      ai: env.AI,
-      workersAiModel: env.WORKERS_AI_MODEL,
-      log,
-    }),
+    extract: llmExtractor({ ai: env.AI, model: env.WORKERS_AI_MODEL }),
     calendar: dryRun
       ? loggingCalendar
       : googleCalendar({ email: env.GOOGLE_SA_EMAIL, privateKeyPem: env.GOOGLE_SA_KEY, calendarId: env.CALENDAR_ID }),

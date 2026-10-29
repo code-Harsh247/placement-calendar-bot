@@ -43,6 +43,11 @@ describe("buildEvent", () => {
     expect(built.event.description).toContain("Notice #42");
   });
 
+  it("uses the event's own company for combined CDC schedules", () => {
+    const cdc = { ...notice, company: "CDC Placement Schedule for 27th30th October 2026" };
+    expect(buildEvent(cdc, event({ company: "Quadeye" }), NOW)).toMatchObject({ ok: true, title: "Quadeye — Online Test" });
+  });
+
   it("defaults to one hour when there's no end time", () => {
     const built = buildEvent(notice, event({ start: "23:30", end: null }), NOW);
     if (!built.ok) throw new Error();
@@ -75,6 +80,13 @@ describe("run", () => {
     expect(t.polls).toEqual([INITIAL_SINCE]);
   });
 
+  it("skips internship notices on the shared topic", async () => {
+    const m = message(5, "Schedule", "Google");
+    m.title = m.title!.replace("PLACEMENT", "INTERNSHIP");
+    const t = setup([m], () => { throw new Error("should not be called"); });
+    expect(await run(t.deps)).toMatchObject({ skipped: 1, handled: 0 });
+  });
+
   it("creates events for schedules and PPTs", async () => {
     const msgs = [message(10, "Schedule", "Google"), message(11, "PPT/Workshop/Seminars etc", "Amazon")];
     const t = setup(msgs, ({ notice }) =>
@@ -104,6 +116,18 @@ describe("run", () => {
     expect(summary).toMatchObject({ updated: 1, created: 0 });
     expect(t.cal.patches[0]).toMatchObject({ id: "gcal-1", event: { start: { dateTime: "2026-11-03T16:00:00" } } });
     expect(t.mem.events[0]?.starts_at).toBe("2026-11-03T16:00");
+  });
+
+  it("shows a company's own notice the event a CDC schedule already created", async () => {
+    const t = setup([message(90, "Schedule", "CDC Placement Schedule")], () => [event({ company: "CAPITAL ONE", kind: "ppt" })]);
+    await run(t.deps);
+    t.deps.poll = async () => [message(91, "PPT/Workshop/Seminars etc", "CAPITAL ONE SERVICES INDIA PVT. LTD.")];
+    t.deps.extract = async (input) => {
+      t.inputs.push(input);
+      return [];
+    };
+    await run(t.deps);
+    expect(t.inputs.at(-1)?.known.map((k) => k.title)).toEqual(["CAPITAL ONE — Online Test"]);
   });
 
   it("marks a cancelled event instead of deleting it", async () => {

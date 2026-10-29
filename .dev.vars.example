@@ -1,9 +1,11 @@
-# Copy to .dev.vars for `npm run dev`. .dev.vars is gitignored.
+# Copy to .dev.vars for `npm run dev` and `npm run eval`. .dev.vars is gitignored.
 NAARAD_USER=
 NAARAD_PASS=
-GEMINI_API_KEY=
 GOOGLE_SA_EMAIL=
 GOOGLE_SA_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 CALENDAR_ID=
 ALERT_TOPIC=
 RUN_TOKEN=
+# Only for `npm run eval` (the deployed Worker uses its AI binding instead).
+CLOUDFLARE_ACCOUNT_ID=
+CLOUDFLARE_API_TOKEN=

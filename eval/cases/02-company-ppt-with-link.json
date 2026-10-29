@@ -1,0 +1,9 @@
+{
+  "name": "Real #1274: a company's own PPT notice with a Zoom link",
+  "title": "#1274 | PLACEMENT | PPT/Workshop/Seminars etc | CAPITAL ONE SERVICES INDIA PVT. LTD.",
+  "posted_at": "2026-10-30T03:34:00+05:30",
+  "body": "The Pre-Placement Talk for Capital One for both the roles, will be held on 30th October, 2026 from 11:55 AM.\n\nLink: https://www.google.com/url?q=https%3A%2F%2Fcapitalone.zoom.us%2Fj%2F00000000000&sa=D&source=calendar\n\nMeeting ID: 000 0000 0000\nPasscode: 000000\n\nNote: All placement-registered students are supposed to attend the PPT, without fail. Attendance is compulsory. Students must join the link 15 minutes prior to the scheduled time.\n\nPOC: (redacted)\n\nCDC, IIT Kharagpur.\n\n30-10-2026 03:34",
+  "expect": [
+    { "kind": "ppt", "date": "2026-10-30", "start": "11:55", "confidence": "high" }
+  ]
+}

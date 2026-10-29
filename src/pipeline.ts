@@ -3,7 +3,7 @@
 import type { Alert } from "./alert";
 import type { Calendar, CalendarEvent } from "./calendar";
 import type { ExtractedEvent, Extractor, Kind } from "./extract";
-import { IN_SCOPE_SUBJECTS, toNotice, type Notice, type NtfyMessage } from "./naarad";
+import { IN_SCOPE_SUBJECTS, IN_SCOPE_TYPES, toNotice, type Notice, type NtfyMessage } from "./naarad";
 import { companyKey, type Store } from "./store";
 import { addMinutes, istDate, istToInstant, nextDay, TIME_ZONE } from "./time";
 
@@ -31,7 +31,8 @@ export interface RunSummary {
 }
 
 // On the very first run, backfill everything Naarad still has cached (it keeps 3 days).
-export const INITIAL_SINCE = "3d";
+// Naarad's ntfy rejects day durations like "3d", so ask for everything.
+export const INITIAL_SINCE = "all";
 export const MAX_ATTEMPTS = 3;
 const DEFAULT_DURATION_MIN = 60;
 
@@ -53,6 +54,7 @@ type Built =
 export function buildEvent(notice: Notice, ev: ExtractedEvent, now: Date): Built {
   if (!ev.date) return { ok: false, reason: "no-date" };
 
+  const company = ev.company ?? notice.company;
   const name = ev.title_hint ?? LABELS[ev.kind];
   const placeholder = !ev.start || ev.confidence === "low";
   let title: string;
@@ -62,14 +64,14 @@ export function buildEvent(notice: Notice, ev: ExtractedEvent, now: Date): Built
 
   if (placeholder) {
     if (ev.date < istDate(now)) return { ok: false, reason: "past" };
-    title = `⚠ ${notice.company} — ${name} (${ev.start ? `${ev.start}? check` : "time TBA"})`;
+    title = `⚠ ${company} — ${name} (${ev.start ? `${ev.start}? check` : "time TBA"})`;
     start = { date: ev.date, dateTime: null, timeZone: null };
     end = { date: nextDay(ev.date), dateTime: null, timeZone: null };
     startsAt = ev.date;
   } else {
     const startTime = ev.start!;
     if (istToInstant(ev.date, startTime) < now) return { ok: false, reason: "past" };
-    title = `${notice.company} — ${name}`;
+    title = `${company} — ${name}`;
     startsAt = `${ev.date}T${startTime}`;
     const endsAt = ev.end && ev.end > startTime ? `${ev.date}T${ev.end}` : addMinutes(ev.date, startTime, DEFAULT_DURATION_MIN);
     start = { dateTime: `${startsAt}:00`, timeZone: TIME_ZONE, date: null };
@@ -100,7 +102,7 @@ export function buildEvent(notice: Notice, ev: ExtractedEvent, now: Date): Built
       end,
       colorId: COLORS[ev.kind],
       transparency: "opaque",
-      extendedProperties: { private: { noticeId: notice.noticeId, company: notice.company, kind: ev.kind } },
+      extendedProperties: { private: { noticeId: notice.noticeId, company, kind: ev.kind } },
     },
   };
 }
@@ -171,11 +173,12 @@ async function handleNotice(notice: Notice, deps: Deps, summary: RunSummary): Pr
       continue;
     }
     const gcalId = await calendar.insert(built.event);
+    const company = ev.company ?? notice.company;
     await store.addEvent({
       notice_id: notice.noticeId,
       slot,
-      company: notice.company,
-      company_key: key,
+      company,
+      company_key: companyKey(company),
       kind: ev.kind,
       title: built.title,
       starts_at: built.startsAt,
@@ -183,7 +186,7 @@ async function handleNotice(notice: Notice, deps: Deps, summary: RunSummary): Pr
     });
     summary.created++;
     if (built.placeholder) {
-      await alert(`Check time: ${notice.company}`, `Added "${built.title}" on ${ev.date}, but the bot couldn't pin down the time.`);
+      await alert(`Check time: ${company}`, `Added "${built.title}" on ${ev.date}, but the bot couldn't pin down the time.`);
     }
   }
 }
@@ -209,7 +212,7 @@ export async function run(deps: Deps): Promise<RunSummary> {
     }
 
     const record = { noticeId: notice.noticeId, ntfyId: msg.id, subject: notice.subject, company: notice.company };
-    if (!IN_SCOPE_SUBJECTS.has(notice.subject)) {
+    if (!IN_SCOPE_TYPES.has(notice.type) || !IN_SCOPE_SUBJECTS.has(notice.subject)) {
       await store.saveNotice({ ...record, status: "skipped", attempts: 0 });
       await store.setCursor(msg.id);
       summary.skipped++;

@@ -1,0 +1,12 @@
+{
+  "name": "Made-up: a test moved to another day",
+  "title": "#9004 | PLACEMENT | Re-schedule | GOOGLE INDIA PVT. LTD.",
+  "posted_at": "2026-11-01T18:20:00+05:30",
+  "body": "The Online Test of Google, earlier scheduled on 3rd November 2026 (2:00 PM - 3:30 PM), has been rescheduled to 5th November 2026, 4:00 PM - 5:30 PM. The test link will be shared on the registered email IDs.\n\nCDC, IIT Kharagpur\n\n01-11-2026 18:20",
+  "known": [
+    { "id": 3, "kind": "test", "title": "GOOGLE INDIA PVT. LTD. — Online Test", "starts_at": "2026-11-03T14:00" }
+  ],
+  "expect": [
+    { "action": "update", "target_event_id": 3, "kind": "test", "date": "2026-11-05", "start": "16:00", "end": "17:30" }
+  ]
+}

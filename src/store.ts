@@ -43,11 +43,12 @@ export interface Store {
   updateEvent(id: number, fields: Partial<Pick<StoredEvent, "title" | "starts_at" | "kind" | "status">>): Promise<void>;
 }
 
-// "Goldman Sachs (India) Pvt. Ltd." and "goldman sachs india" should match.
+// "Goldman Sachs (India) Pvt. Ltd." and "goldman sachs india" should match, as should
+// "CAPITAL ONE SERVICES INDIA PVT. LTD." and "CAPITAL ONE" from a combined CDC schedule.
 export function companyKey(company: string): string {
   return company
     .toLowerCase()
-    .replace(/\b(pvt|private|ltd|limited|llp|inc|llc|india|technologies|technology|solutions)\b/g, "")
+    .replace(/\b(pvt|private|ltd|limited|llp|inc|llc|corp|corporation|india|technologies|technology|solutions|services|software|systems|labs|group|global)\b/g, "")
     .replace(/[^a-z0-9]/g, "");
 }
 

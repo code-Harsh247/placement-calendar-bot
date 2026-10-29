@@ -65,6 +65,7 @@ export function event(partial: Partial<ExtractedEvent>): ExtractedEvent {
     action: "create",
     target_event_id: null,
     kind: "test",
+    company: null,
     title_hint: "Online Test",
     date: "2026-11-03",
     start: "14:00",

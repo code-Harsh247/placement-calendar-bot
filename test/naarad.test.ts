@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import { parseTitle, pollNaarad, restoreLinks, stripDisclaimer, toNotice } from "../src/naarad";
 
 describe("parseTitle", () => {
@@ -62,14 +62,14 @@ describe("pollNaarad", () => {
       );
     }) as unknown as typeof fetch;
 
-    const msgs = await pollNaarad({ url: "https://naarad.example/", topic: "kgp-mftp-placement", user: "u", pass: "p" }, "3d", fakeFetch);
+    const msgs = await pollNaarad({ url: "https://naarad.example/", topic: "kgp-mftp-placement", user: "u", pass: "p" }, "all", fakeFetch);
     expect(msgs.map((m) => m.id)).toEqual(["b"]);
-    expect(seen?.url).toBe("https://naarad.example/kgp-mftp-placement/json?poll=1&since=3d");
+    expect(seen?.url).toBe("https://naarad.example/kgp-mftp-placement/json?poll=1&since=all");
     expect(seen?.auth).toBe(`Basic ${btoa("u:p")}`);
   });
 
   it("throws on HTTP errors", async () => {
     const fakeFetch = (async () => new Response("denied", { status: 403 })) as unknown as typeof fetch;
-    await expect(pollNaarad({ url: "https://n", topic: "t", user: "u", pass: "p" }, "3d", fakeFetch)).rejects.toThrow(/403/);
+    await expect(pollNaarad({ url: "https://n", topic: "t", user: "u", pass: "p" }, "all", fakeFetch)).rejects.toThrow(/403/);
   });
 });
