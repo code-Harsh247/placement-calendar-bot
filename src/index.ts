@@ -1,5 +1,6 @@
 import { ntfyAlert, type Alert } from "./alert";
 import { googleCalendar, type Calendar } from "./calendar";
+import { errorMessage, errorReporter } from "./errors";
 import { llmExtractor } from "./extract";
 import { pollNaarad } from "./naarad";
 import { run, type RunSummary } from "./pipeline";
@@ -52,14 +53,18 @@ const loggingCalendar: Calendar = {
   },
 };
 
-async function runOnce(env: Env): Promise<RunSummary> {
+function setup(env: Env) {
   const dryRun = env.DRY_RUN === "true";
   const store = d1Store(env.DB);
   const alert: Alert =
     env.ALERT_TOPIC && !dryRun
       ? ntfyAlert(env.ALERT_TOPIC)
       : async (title, message) => log(`[alert] ${title}: ${message}`);
+  const reportError = errorReporter(store, alert, log);
+  return { dryRun, store, alert, reportError };
+}
 
+async function runOnce(env: Env, { dryRun, store, alert, reportError }: ReturnType<typeof setup>): Promise<RunSummary> {
   const summary = await run({
     store: dryRun ? readOnly(store) : store,
     poll: (since) =>
@@ -69,6 +74,7 @@ async function runOnce(env: Env): Promise<RunSummary> {
       ? loggingCalendar
       : googleCalendar({ email: env.GOOGLE_SA_EMAIL, privateKeyPem: env.GOOGLE_SA_KEY, calendarId: env.CALENDAR_ID }),
     alert,
+    reportError,
     now: () => new Date(),
     maxNotices: Number(env.MAX_NOTICES_PER_RUN) || 10,
     log,
@@ -77,14 +83,22 @@ async function runOnce(env: Env): Promise<RunSummary> {
   return summary;
 }
 
+// Anything that fails the whole run (Naarad down, bad credentials, D1 errors) is alerted
+// and retried on the next cron tick.
+async function guardedRun(env: Env): Promise<RunSummary | { error: string }> {
+  const ctx = setup(env);
+  try {
+    return await runOnce(env, ctx);
+  } catch (err) {
+    console.error(`run failed: ${err instanceof Error ? err.stack : err}`);
+    await ctx.reportError("run failed, retrying in 5 min", err);
+    return { error: errorMessage(err) };
+  }
+}
+
 export default {
   async scheduled(_controller, env) {
-    try {
-      await runOnce(env);
-    } catch (err) {
-      // Naarad or D1 being down: log it and try again on the next cron tick.
-      console.error(`run failed: ${err instanceof Error ? err.stack : err}`);
-    }
+    await guardedRun(env);
   },
 
   // POST /run with `Authorization: Bearer <RUN_TOKEN>` triggers a run by hand.
@@ -94,10 +108,7 @@ export default {
     if (!env.RUN_TOKEN || request.headers.get("Authorization") !== `Bearer ${env.RUN_TOKEN}`) {
       return new Response("Unauthorized", { status: 401 });
     }
-    try {
-      return Response.json(await runOnce(env));
-    } catch (err) {
-      return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
-    }
+    const result = await guardedRun(env);
+    return Response.json(result, { status: "error" in result ? 500 : 200 });
   },
 } satisfies ExportedHandler<Env>;

@@ -2,6 +2,7 @@
 
 import type { Alert } from "./alert";
 import type { Calendar, CalendarEvent } from "./calendar";
+import type { ReportError } from "./errors";
 import type { ExtractedEvent, Extractor, Kind } from "./extract";
 import { IN_SCOPE_SUBJECTS, IN_SCOPE_TYPES, toNotice, type Notice, type NtfyMessage } from "./naarad";
 import { companyKey, type Store } from "./store";
@@ -13,6 +14,8 @@ export interface Deps {
   extract: Extractor;
   calendar: Calendar;
   alert: Alert;
+  // Sends errors to your alert topic (throttled); see errors.ts.
+  reportError: ReportError;
   now: () => Date;
   maxNotices: number;
   log: (msg: string) => void;
@@ -245,6 +248,10 @@ export async function run(deps: Deps): Promise<RunSummary> {
       }
       // Stop here so this notice (and everything after it) is retried next run, in order.
       await store.saveNotice({ ...record, status: "pending", attempts, error });
+      await deps.reportError(
+        `#${notice.noticeId} ${notice.company} (attempt ${attempts} of ${MAX_ATTEMPTS}, retrying in 5 min)`,
+        err,
+      );
       summary.more = true;
       break;
     }

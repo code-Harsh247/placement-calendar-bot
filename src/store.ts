@@ -33,6 +33,8 @@ export type NewEvent = Omit<StoredEvent, "id" | "status">;
 export interface Store {
   getCursor(): Promise<string | null>;
   setCursor(ntfyId: string): Promise<void>;
+  getState(key: string): Promise<string | null>;
+  setState(key: string, value: string): Promise<void>;
   getNotice(noticeId: string): Promise<NoticeRecord | null>;
   saveNotice(record: NoticeRecord): Promise<void>;
   // Active events for a company that haven't happened yet (or have no date).
@@ -55,17 +57,21 @@ export function companyKey(company: string): string {
 const nowIso = () => new Date().toISOString();
 
 export function d1Store(db: D1Database): Store {
+  const getState = async (key: string) => {
+    const row = await db.prepare("SELECT value FROM state WHERE key = ?").bind(key).first<{ value: string }>();
+    return row?.value ?? null;
+  };
+  const setState = async (key: string, value: string) => {
+    await db
+      .prepare("INSERT INTO state (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value")
+      .bind(key, value)
+      .run();
+  };
   return {
-    async getCursor() {
-      const row = await db.prepare("SELECT value FROM state WHERE key = 'cursor'").first<{ value: string }>();
-      return row?.value ?? null;
-    },
-    async setCursor(ntfyId) {
-      await db
-        .prepare("INSERT INTO state (key, value) VALUES ('cursor', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value")
-        .bind(ntfyId)
-        .run();
-    },
+    getState,
+    setState,
+    getCursor: () => getState("cursor"),
+    setCursor: (ntfyId) => setState("cursor", ntfyId),
     async getNotice(noticeId) {
       const row = await db
         .prepare("SELECT notice_id, ntfy_id, subject, company, status, attempts, error FROM notices WHERE notice_id = ?")

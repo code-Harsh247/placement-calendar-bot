@@ -5,11 +5,14 @@ import type { NoticeRecord, Store, StoredEvent } from "../src/store";
 
 export function memoryStore() {
   const state = { cursor: null as string | null };
+  const kv = new Map<string, string>();
   const notices = new Map<string, NoticeRecord>();
   const events: StoredEvent[] = [];
   const store: Store = {
     async getCursor() { return state.cursor; },
     async setCursor(id) { state.cursor = id; },
+    async getState(key) { return kv.get(key) ?? null; },
+    async setState(key, value) { kv.set(key, value); },
     async getNotice(id) { return notices.get(id) ?? null; },
     async saveNotice(r) { notices.set(r.noticeId, { ...r }); },
     async knownEvents(key, today) {

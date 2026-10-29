@@ -8,6 +8,7 @@ function setup(messages: NtfyMessage[], extract: (input: ExtractInput) => Extrac
   const mem = memoryStore();
   const cal = fakeCalendar();
   const alerts: string[] = [];
+  const errors: string[] = [];
   const polls: string[] = [];
   const inputs: ExtractInput[] = [];
   const deps: Deps = {
@@ -22,11 +23,12 @@ function setup(messages: NtfyMessage[], extract: (input: ExtractInput) => Extrac
     },
     calendar: cal.calendar,
     alert: async (title) => { alerts.push(title); },
+    reportError: async (where, err) => { errors.push(`${where}: ${err instanceof Error ? err.message : err}`); },
     now: () => NOW,
     maxNotices: 10,
     log: () => {},
   };
-  return { deps, mem, cal, alerts, polls, inputs };
+  return { deps, mem, cal, alerts, errors, polls, inputs };
 }
 
 describe("buildEvent", () => {
@@ -164,6 +166,7 @@ describe("run", () => {
     expect(first).toMatchObject({ created: 0, more: true });
     expect(t.mem.state.cursor).toBeNull();
     expect(t.mem.notices.get("50")).toMatchObject({ status: "pending", attempts: 1 });
+    expect(t.errors).toEqual(["#50 Google (attempt 1 of 3, retrying in 5 min): calendar down"]);
 
     const second = await run(t.deps);
     expect(second).toMatchObject({ created: 2, more: false });
