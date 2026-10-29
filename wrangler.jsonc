@@ -1,0 +1,38 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "placement-calendar-bot",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "observability": { "enabled": true },
+
+  // Poll Naarad every 5 minutes.
+  "triggers": { "crons": ["*/5 * * * *"] },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "placement-bot",
+      // Replace with the id printed by `npx wrangler d1 create placement-bot`.
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // Workers AI, used only when Gemini is unavailable.
+  "ai": { "binding": "AI" },
+
+  "vars": {
+    "NAARAD_URL": "https://naarad.metakgp.org",
+    // The placement topic you're subscribed to in the ntfy app.
+    "TOPIC": "kgp-mftp-placement",
+    "GEMINI_MODEL": "gemini-2.5-flash",
+    "WORKERS_AI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    "MAX_NOTICES_PER_RUN": "10",
+    // "true" = log calendar actions without writing anything. Flip to "false" once a dry run looks right.
+    "DRY_RUN": "true"
+  }
+
+  // Secrets (set with `npx wrangler secret put <NAME>`):
+  // NAARAD_USER, NAARAD_PASS, GEMINI_API_KEY, GOOGLE_SA_EMAIL, GOOGLE_SA_KEY,
+  // CALENDAR_ID, ALERT_TOPIC, RUN_TOKEN
+}

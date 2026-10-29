@@ -1,0 +1,9 @@
+# Copy to .dev.vars for `npm run dev`. .dev.vars is gitignored.
+NAARAD_USER=
+NAARAD_PASS=
+GEMINI_API_KEY=
+GOOGLE_SA_EMAIL=
+GOOGLE_SA_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+CALENDAR_ID=
+ALERT_TOPIC=
+RUN_TOKEN=
