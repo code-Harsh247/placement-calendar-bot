@@ -8,7 +8,7 @@ import type { ReportError } from "./errors";
 import type { ExtractedEvent, Extractor, Kind } from "./extract";
 import { IN_SCOPE_SUBJECTS, IN_SCOPE_TYPES, toNotice, type Notice, type NtfyMessage } from "./naarad";
 import { companyKey, parseDetails, type Store, type StoredEvent } from "./store";
-import { addMinutes, istDate, istToInstant, nextDay, TIME_ZONE } from "./time";
+import { addMinutes, formatWallClock, istDate, istToInstant, nextDay, TIME_ZONE } from "./time";
 import { eventTitle, KIND_LABELS } from "./title";
 
 export interface Deps {
@@ -208,6 +208,7 @@ async function handleNotice(notice: Notice, deps: Deps, summary: RunSummary, fol
   const detailsFor = (ref: number) => lines.get(ref) ?? fallbackLines(items.find((i) => i.ref === ref)!);
 
   // Phase 3: write to the calendar and the database.
+  const added: string[] = [];
   for (const [ref, plan] of plans.entries()) {
     switch (plan.op) {
       case "cancel": {
@@ -269,12 +270,20 @@ async function handleNotice(notice: Notice, deps: Deps, summary: RunSummary, fol
           details: JSON.stringify(details),
         });
         summary.created++;
-        if (plan.timing.placeholder) {
-          await alert(`Check time: ${plan.company}`, `Added "${plan.title}" on ${plan.ev.date}, but the bot couldn't pin down the time.`);
-        }
+        added.push(`${plan.title} · ${formatWallClock(plan.timing.startsAt)}`);
         break;
       }
     }
+  }
+
+  // One push per notice for everything it added (a weekly CDC schedule would otherwise send ~15).
+  // Placeholder titles start with ⚠, so an unclear time shows up here too.
+  if (added.length > 0) {
+    const unclear = added.some((a) => a.startsWith("⚠")) ? "\n\n⚠ = the bot couldn't pin down the time; check the notice." : "";
+    await alert(
+      added.length === 1 ? `Added: ${added[0]!.split(" · ")[0]}` : `Added ${added.length} events to your calendar`,
+      `${added.join("\n")}${unclear}\n\nFrom notice #${notice.noticeId} · ${notice.subject}`,
+    );
   }
 }
 

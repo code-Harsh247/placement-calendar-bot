@@ -27,6 +27,8 @@ Cron (every 5 min) → Cloudflare Worker → poll Naarad /<topic>/json?since=<cu
 
 Colours: tests are red, interviews orange, GDs yellow, PPTs blue.
 
+Whenever the bot adds events, it also pushes one ntfy alert per notice to your `ALERT_TOPIC`, listing each event and its time, e.g. `ZANSKAR — PPT · Fri 30 Oct, 17:00`.
+
 ## Setup
 
 You need Node 20+, a Cloudflare account (free plan), and a Google account.

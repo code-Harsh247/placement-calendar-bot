@@ -9,6 +9,7 @@ function setup(messages: NtfyMessage[], find: (input: ExtractInput) => Extracted
   const mem = memoryStore();
   const cal = fakeCalendar();
   const alerts: string[] = [];
+  const alertMessages: string[] = [];
   const errors: string[] = [];
   const polls: string[] = [];
   const inputs: ExtractInput[] = [];
@@ -30,13 +31,13 @@ function setup(messages: NtfyMessage[], find: (input: ExtractInput) => Extracted
     },
     describe,
     calendar: cal.calendar,
-    alert: async (title) => { alerts.push(title); },
+    alert: async (title, message) => { alerts.push(title); alertMessages.push(message); },
     reportError: async (where, err) => { errors.push(`${where}: ${err instanceof Error ? err.message : err}`); },
     now: () => NOW,
     maxNotices: 10,
     log: () => {},
   };
-  return { deps, mem, cal, alerts, errors, polls, inputs, described };
+  return { deps, mem, cal, alerts, alertMessages, errors, polls, inputs, described };
 }
 
 describe("buildTiming", () => {
@@ -115,6 +116,27 @@ describe("run", () => {
     expect(t.cal.inserted[1]?.location).toBe("https://zoom.us/j/1");
     expect(t.mem.events[0]?.details).toBe(JSON.stringify(["Details for GOOGLE INDIA PVT. LTD."]));
     expect(t.mem.notices.get("10")).toMatchObject({ status: "done", body: "very long notice body" });
+  });
+
+  it("sends one alert per notice listing the events it added", async () => {
+    const t = setup([message(15, "Schedule", "CDC Placement Schedule")], () => [
+      event({ company: "ZANSKAR", kind: "ppt", date: "2026-10-30", start: "17:00" }),
+      event({ company: "QUALCOMM", date: "2026-10-30", start: "22:00" }),
+    ]);
+    await run(t.deps);
+    expect(t.alerts).toEqual(["Added 2 events to your calendar"]);
+    expect(t.alertMessages[0]).toBe(
+      "ZANSKAR — PPT · Fri 30 Oct, 17:00\nQUALCOMM — Test · Fri 30 Oct, 22:00\n\nFrom notice #15 · Schedule",
+    );
+  });
+
+  it("doesn't send an added alert for updates", async () => {
+    const t = setup([message(16, "Schedule", "Google")], () => [event({})]);
+    await run(t.deps);
+    t.deps.poll = async () => [message(17, "Re-schedule", "Google")];
+    t.deps.find = async ({ known }) => [event({ action: "update", target_event_id: known[0]!.id, start: "16:00" })];
+    await run(t.deps);
+    expect(t.alerts).toEqual(["Added: Google — Test"]);
   });
 
   it("describes all of a notice's events in one step-2 call", async () => {
@@ -196,7 +218,7 @@ describe("run", () => {
     t.deps.poll = async () => [message(104, "Shortlist", "Google")];
     t.deps.find = async () => [];
     await run(t.deps);
-    expect(t.alerts).toEqual([]);
+    expect(t.alerts).toEqual(["Added: Google — Test"]); // only the first notice's event
   });
 
   it("shows a company's own notice the event a CDC schedule already created", async () => {
@@ -227,7 +249,8 @@ describe("run", () => {
     const t = setup([message(40, "Schedule", "Google")], () => [event({ start: null })]);
     await run(t.deps);
     expect(t.cal.inserted[0]?.summary).toBe("⚠ Google — Test (time TBA)");
-    expect(t.alerts).toEqual(["Check time: Google"]);
+    expect(t.alerts).toEqual(["Added: ⚠ Google — Test (time TBA)"]);
+    expect(t.alertMessages[0]).toContain("couldn't pin down the time");
   });
 
   it("alerts when a schedule has no event in it", async () => {
@@ -274,7 +297,7 @@ describe("run", () => {
     });
     for (let i = 0; i < MAX_ATTEMPTS; i++) await run(t.deps);
     expect(t.mem.notices.get("60")).toMatchObject({ status: "failed", attempts: MAX_ATTEMPTS });
-    expect(t.alerts).toEqual(["Bot gave up: Google"]);
+    expect(t.alerts).toEqual(["Bot gave up: Google", "Added: Amazon — Test"]);
     expect(t.cal.inserted.map((e) => e.summary)).toEqual(["Amazon — Test"]);
   });
 

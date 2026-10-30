@@ -30,6 +30,15 @@ export function addMinutes(date: string, time: string, minutes: number): string 
   return new Date(Date.parse(`${date}T${time}:00Z`) + minutes * 60_000).toISOString().slice(0, 16);
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// IST wall-clock 'YYYY-MM-DDTHH:MM' (or 'YYYY-MM-DD') → 'Fri 30 Oct, 11:55' (or 'Fri 30 Oct, all day').
+export function formatWallClock(startsAt: string): string {
+  const d = new Date(Date.parse(`${startsAt.slice(0, 10)}T00:00:00Z`));
+  const day = `${WEEKDAYS[d.getUTCDay()]!.slice(0, 3)} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+  return startsAt.length > 10 ? `${day}, ${startsAt.slice(11, 16)}` : `${day}, all day`;
+}
+
 export function nextDay(date: string): string {
   return new Date(Date.parse(`${date}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
 }
