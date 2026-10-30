@@ -1,0 +1,28 @@
+{
+  "name": "Made-up: the PPT link arrives later under an \"Urgent\" notice",
+  "title": "#9011 | PLACEMENT | Urgent | CAPITAL ONE SERVICES INDIA PVT. LTD.",
+  "posted_at": "2026-10-30T09:10:00+05:30",
+  "body": "Dear Students,\n\nThe joining details for today's Pre-Placement Talk by Capital One are as follows:\nZoom link: https://capitalone.zoom.us/j/91544102387?pwd=QmVlVGVzdA.1\nMeeting ID: 915 4410 2387\nPasscode: 582941\n\nPlease join 15 minutes before the scheduled time with your institute email ID.\n\nCDC, IIT Kharagpur\n\n30-10-2026 09:10",
+  "known": [
+    {
+      "id": 12,
+      "kind": "ppt",
+      "title": "CAPITAL ONE — PPT",
+      "starts_at": "2026-10-30T12:01",
+      "details": [
+        "Schedule is tentative"
+      ]
+    }
+  ],
+  "expect": [
+    {
+      "action": "info",
+      "target_event_id": 12,
+      "details_contain": [
+        "https://capitalone.zoom.us/j/91544102387",
+        "582941"
+      ],
+      "details_max_lines": 5
+    }
+  ]
+}

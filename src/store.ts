@@ -13,6 +13,7 @@ export interface NoticeRecord {
   status: NoticeStatus;
   attempts: number;
   error?: string | null;
+  body?: string | null; // kept for in-scope notices, so descriptions can be regenerated
 }
 
 export interface StoredEvent {
@@ -26,9 +27,20 @@ export interface StoredEvent {
   starts_at: string | null;
   gcal_event_id: string;
   status: "active" | "cancelled";
+  details: string | null; // JSON array of description lines
 }
 
 export type NewEvent = Omit<StoredEvent, "id" | "status">;
+
+export function parseDetails(details: string | null | undefined): string[] {
+  if (!details) return [];
+  try {
+    const lines = JSON.parse(details);
+    return Array.isArray(lines) ? lines.filter((l): l is string => typeof l === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 export interface Store {
   getCursor(): Promise<string | null>;
@@ -37,12 +49,15 @@ export interface Store {
   setState(key: string, value: string): Promise<void>;
   getNotice(noticeId: string): Promise<NoticeRecord | null>;
   saveNotice(record: NoticeRecord): Promise<void>;
+  getNoticeBody(noticeId: string): Promise<string | null>;
   // Active events for a company that haven't happened yet (or have no date).
   knownEvents(companyKey: string, today: string): Promise<KnownEvent[]>;
   getEvent(id: number): Promise<StoredEvent | null>;
   findSlot(noticeId: string, slot: number): Promise<StoredEvent | null>;
+  // All active events that haven't happened yet, for regenerating descriptions.
+  upcomingEvents(today: string): Promise<StoredEvent[]>;
   addEvent(event: NewEvent): Promise<number>;
-  updateEvent(id: number, fields: Partial<Pick<StoredEvent, "title" | "starts_at" | "kind" | "status">>): Promise<void>;
+  updateEvent(id: number, fields: Partial<Pick<StoredEvent, "title" | "starts_at" | "kind" | "status" | "details">>): Promise<void>;
 }
 
 // "Goldman Sachs (India) Pvt. Ltd." and "goldman sachs india" should match, as should
@@ -86,13 +101,18 @@ export function d1Store(db: D1Database): Store {
     async saveNotice(r) {
       await db
         .prepare(
-          `INSERT INTO notices (notice_id, ntfy_id, subject, company, status, attempts, error, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO notices (notice_id, ntfy_id, subject, company, status, attempts, error, body, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT (notice_id) DO UPDATE SET ntfy_id = excluded.ntfy_id, status = excluded.status,
-             attempts = excluded.attempts, error = excluded.error, updated_at = excluded.updated_at`,
+             attempts = excluded.attempts, error = excluded.error, body = COALESCE(excluded.body, notices.body),
+             updated_at = excluded.updated_at`,
         )
-        .bind(r.noticeId, r.ntfyId, r.subject, r.company, r.status, r.attempts, r.error ?? null, nowIso())
+        .bind(r.noticeId, r.ntfyId, r.subject, r.company, r.status, r.attempts, r.error ?? null, r.body ?? null, nowIso())
         .run();
+    },
+    async getNoticeBody(noticeId) {
+      const row = await db.prepare("SELECT body FROM notices WHERE notice_id = ?").bind(noticeId).first<{ body: string | null }>();
+      return row?.body ?? null;
     },
     async knownEvents(key, today) {
       const { results } = await db
@@ -111,13 +131,23 @@ export function d1Store(db: D1Database): Store {
     async findSlot(noticeId, slot) {
       return db.prepare("SELECT * FROM events WHERE notice_id = ? AND slot = ?").bind(noticeId, slot).first<StoredEvent>();
     },
+    async upcomingEvents(today) {
+      const { results } = await db
+        .prepare(
+          `SELECT * FROM events WHERE status = 'active' AND (starts_at IS NULL OR substr(starts_at, 1, 10) >= ?)
+           ORDER BY notice_id, slot`,
+        )
+        .bind(today)
+        .all<StoredEvent>();
+      return results;
+    },
     async addEvent(e) {
       const row = await db
         .prepare(
-          `INSERT INTO events (notice_id, slot, company, company_key, kind, title, starts_at, gcal_event_id, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+          `INSERT INTO events (notice_id, slot, company, company_key, kind, title, starts_at, gcal_event_id, details, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
         )
-        .bind(e.notice_id, e.slot, e.company, e.company_key, e.kind, e.title, e.starts_at, e.gcal_event_id, nowIso())
+        .bind(e.notice_id, e.slot, e.company, e.company_key, e.kind, e.title, e.starts_at, e.gcal_event_id, e.details, nowIso())
         .first<{ id: number }>();
       return row!.id;
     },

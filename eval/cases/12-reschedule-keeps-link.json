@@ -1,0 +1,32 @@
+{
+  "name": "Made-up: a reschedule that only changes the time keeps the earlier test link",
+  "title": "#9012 | PLACEMENT | Re-schedule | GOOGLE INDIA PVT. LTD.",
+  "posted_at": "2026-11-02T17:45:00+05:30",
+  "body": "The Online Test of Google has been rescheduled to 6th November 2026, 3:00 PM - 4:30 PM. All other details remain the same.\n\nCDC, IIT Kharagpur\n\n02-11-2026 17:45",
+  "known": [
+    {
+      "id": 3,
+      "kind": "test",
+      "title": "GOOGLE — Test",
+      "starts_at": "2026-11-05T16:00",
+      "details": [
+        "Test link: https://www.hackerrank.com/test/g00gl3-oa",
+        "Use the Chrome browser with your webcam on"
+      ]
+    }
+  ],
+  "expect": [
+    {
+      "action": "update",
+      "target_event_id": 3,
+      "kind": "test",
+      "date": "2026-11-06",
+      "start": "15:00",
+      "end": "16:30",
+      "title": "GOOGLE — Test",
+      "details_contain": [
+        "https://www.hackerrank.com/test/g00gl3-oa"
+      ]
+    }
+  ]
+}

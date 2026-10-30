@@ -15,8 +15,8 @@ describe("buildUserPrompt", () => {
 
 describe("sanitize", () => {
   const good = {
-    action: "create", target_event_id: null, kind: "test", title_hint: "Online Test",
-    date: "2026-10-30", start: "14:00", end: null, venue: "", link: null, note: null, confidence: "high",
+    action: "create", target_event_id: null, kind: "test", qualifier: "Online Test",
+    date: "2026-10-30", start: "14:00", end: null, venue: "", link: null, confidence: "high",
   };
 
   it("passes good events through and blanks empty strings", () => {
@@ -49,13 +49,26 @@ describe("sanitize", () => {
     expect(sanitize({ events: [{ ...good, link: "https://meet.google.com/abc" }] }, [])[0]?.link).toBe("https://meet.google.com/abc");
   });
 
+  it("drops info for an event the bot doesn't know", () => {
+    expect(sanitize({ events: [{ ...good, action: "info", target_event_id: 99 }] }, [])).toEqual([]);
+  });
+
+  it("keeps info for a known event", () => {
+    const [ev] = sanitize({ events: [{ ...good, action: "info", target_event_id: 5, date: null, start: null }] }, [{ id: 5, kind: "ppt", title: "x", starts_at: null }]);
+    expect(ev).toMatchObject({ action: "info", target_event_id: 5 });
+  });
+
+  it("clamps the qualifier to 3 words", () => {
+    expect(sanitize({ events: [{ ...good, qualifier: "IC Design Engineer III" }] }, [])[0]?.qualifier).toBe("IC Design Engineer");
+  });
+
   it("rejects output without an events array", () => {
     expect(() => sanitize({ foo: 1 }, [])).toThrow();
   });
 });
 
 describe("llmExtractor", () => {
-  const output = { events: [{ action: "create", target_event_id: null, kind: "test", company: null, title_hint: "Online Test", date: "2026-10-30", start: "14:00", end: null, venue: null, link: null, note: null, confidence: "high" }] };
+  const output = { events: [{ action: "create", target_event_id: null, kind: "test", company: null, qualifier: "Online Test", date: "2026-10-30", start: "14:00", end: null, venue: null, link: null, confidence: "high" }] };
 
   it("sends the prompt and schema to Workers AI and parses an object reply", async () => {
     let call: { model: string; input: any } | undefined;

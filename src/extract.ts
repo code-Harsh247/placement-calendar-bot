@@ -1,9 +1,11 @@
-// Turns a notice's free text into structured events with Workers AI.
+// Step 1: finds the events in a notice (facts only) with Workers AI.
+// Step 2, writing each event's description, is in describe.ts; titles are built in title.ts.
 
 import type { Notice } from "./naarad";
 import { describeIst } from "./time";
 
-export const ACTIONS = ["create", "update", "cancel"] as const;
+// info = adds details (link, passcode, venue) to a known event without changing its time.
+export const ACTIONS = ["create", "update", "info", "cancel"] as const;
 export const KINDS = ["test", "interview", "gd", "ppt", "other"] as const;
 export type Action = (typeof ACTIONS)[number];
 export type Kind = (typeof KINDS)[number];
@@ -13,13 +15,12 @@ export interface ExtractedEvent {
   target_event_id: number | null;
   kind: Kind;
   company: string | null; // set when one notice covers several companies
-  title_hint: string | null;
+  qualifier: string | null; // tells apart two events of one company and kind, e.g. "IC Design"
   date: string | null; // YYYY-MM-DD
   start: string | null; // HH:MM, 24h IST
   end: string | null;
   venue: string | null;
   link: string | null;
-  note: string | null;
   confidence: "high" | "low";
 }
 
@@ -35,6 +36,8 @@ export interface KnownEvent {
 export interface ExtractInput {
   notice: Notice;
   known: KnownEvent[];
+  // True for a notice whose subject isn't a schedule, read only because its company has upcoming events.
+  followUp?: boolean;
 }
 
 export type Extractor = (input: ExtractInput) => Promise<ExtractedEvent[]>;
@@ -53,18 +56,17 @@ export const EVENTS_SCHEMA = {
           target_event_id: { type: ["integer", "null"] },
           kind: { type: "string", enum: [...KINDS] },
           company: nullableString,
-          title_hint: nullableString,
+          qualifier: nullableString,
           date: nullableString,
           start: nullableString,
           end: nullableString,
           venue: nullableString,
           link: nullableString,
-          note: nullableString,
           confidence: { type: "string", enum: ["high", "low"] },
         },
         required: [
-          "action", "target_event_id", "kind", "company", "title_hint", "date", "start",
-          "end", "venue", "link", "note", "confidence",
+          "action", "target_event_id", "kind", "company", "qualifier", "date", "start",
+          "end", "venue", "link", "confidence",
         ],
       },
     },
@@ -78,22 +80,25 @@ Return {"events": [...]}. Rules:
 - Events are tests, interviews, group discussions (gd), and PPTs/workshops/seminars (ppt). Anything else that the student attends at a set time is "other". Deadlines (CV submission, form filling) are NOT events.
 - Resolve relative dates ("tomorrow", "this Friday") against the notice's post time. Dates are YYYY-MM-DD, times are 24-hour HH:MM in IST.
 - If a notice lists several rounds or sessions with different times, return one event per round or session.
-- If candidates are split into batches or slots with different times, return ONE event from the earliest start to the latest end, and say in "note" that the student should check which slot is theirs.
-- "known_events" lists events already on the calendar for this company. If the notice moves, postpones or changes one of them, use action "update" with its id in target_event_id and give the full new details. If it cancels one, use action "cancel" with its id. If it describes the same event as a known one (same kind, same day, e.g. a company's own PPT notice after a combined CDC schedule listed it), use "update" with its id instead of creating a duplicate. Otherwise use "create" with target_event_id null.
+- If candidates are split into batches or slots with different times, return ONE event from the earliest start to the latest end.
+- "known_events" lists events already on the calendar for this company. If the notice moves, postpones or changes one of them, use action "update" with its id in target_event_id and give the full new details. If it cancels one, use action "cancel" with its id. If it describes the same event as a known one (same kind, same day, e.g. a company's own PPT notice after a combined CDC schedule listed it), use "update" with its id instead of creating a duplicate. If it only adds details to a known event (a meeting link, passcode, venue or instructions) without changing its time, use action "info" with its id, and null date/start/end. Otherwise use "create" with target_event_id null.
+- If "follow_up" is true, the notice isn't a schedule; it was picked up because this company has known events. Only return update, info or cancel actions for known events, or a create for a genuinely new dated event. Usually it returns {"events": []}.
 - Some notices (e.g. a "CDC Placement Schedule") list events for several companies; the "company" field of the input is then just the notice's heading. In that case set "company" on each event to the company it is for, as written in the notice. Otherwise set "company" to null.
-- title_hint is a short name such as "Online Test", "Technical Interview" or "Pre-Placement Talk". Don't include the company name. Put role names or other details in "note", not in title_hint.
+- qualifier is null unless the notice has two or more events of the same company and kind; then it is at most 3 words telling them apart, e.g. "Embedded", "IC Design", "Assessment 2", "Round 2".
 - venue is a room or place; link is a meeting or test URL. Use null when the notice doesn't say.
-- confidence is about the date and start time only. Set it "low" only if they are ambiguous, say "TBA", or are said to be in an attachment. A schedule called "tentative" or "subject to change", or links/venues to be "shared separately", is still "high" when the date and time are written out. Mention "tentative" in note instead.
+- confidence is about the date and start time only. Set it "low" only if they are ambiguous, say "TBA", or are said to be in an attachment. A schedule called "tentative" or "subject to change", or links/venues to be "shared separately", is still "high" when the date and time are written out.
 - Never guess a date or time that the notice doesn't support. Use null instead.
 - If the notice has no dated event at all, return {"events": []}.`;
 
-export function buildUserPrompt({ notice, known }: ExtractInput): string {
+export function buildUserPrompt(input: ExtractInput): string {
+  const { notice, known } = input;
   return JSON.stringify(
     {
       company: notice.company,
       subject: notice.subject,
       posted_at: describeIst(new Date(notice.postedAt * 1000)),
       known_events: known,
+      ...(input.followUp ? { follow_up: true } : {}),
       notice: notice.body,
     },
     null,
@@ -130,7 +135,7 @@ export function sanitize(raw: unknown, known: KnownEvent[]): ExtractedEvent[] {
   if (!Array.isArray(list)) throw new Error("LLM response has no events array");
   const knownIds = new Set(known.map((k) => k.id));
 
-  return list.map((item: Record<string, unknown>): ExtractedEvent => {
+  return list.flatMap((item: Record<string, unknown>): ExtractedEvent[] => {
     let confidence: "high" | "low" = item.confidence === "high" ? "high" : "low";
     const date = str(item.date);
     const start = str(item.start);
@@ -147,21 +152,24 @@ export function sanitize(raw: unknown, known: KnownEvent[]): ExtractedEvent[] {
     let action: Action = ACTIONS.includes(item.action as Action) ? (item.action as Action) : "create";
     // An update to an event we never saw (e.g. the bot started after the original notice) is a create.
     if (action === "update" && target === null) action = "create";
+    // Details for an event we never saw have nothing to attach to.
+    if (action === "info" && target === null) return [];
 
-    return {
+    // "Hardware Engineer, C++ Developer" → "Hardware Engineer": first phrase, at most 3 words.
+    const qualifier = str(str(item.qualifier)?.split(/[,;/(]/)[0]?.split(/\s+/).slice(0, 3).join(" "));
+    return [{
       action,
       target_event_id: target,
       kind: KINDS.includes(item.kind as Kind) ? (item.kind as Kind) : "other",
       company: str(item.company),
-      title_hint: str(item.title_hint),
+      qualifier,
       date: validDate,
       start: validStart,
       end: validEnd,
       venue: str(item.venue),
       link: unwrapLink(str(item.link)),
-      note: str(item.note),
       confidence,
-    };
+    }];
   });
 }
 

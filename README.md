@@ -4,8 +4,9 @@ Turns placement notices from [Naarad](https://github.com/metakgp/naarad) (MFTP's
 
 ```
 Cron (every 5 min) → Cloudflare Worker → poll Naarad /<topic>/json?since=<cursor>
-  → skip everything except Schedule / Re-schedule / PPT notices (by title, no LLM call)
-  → Workers AI (Llama 3.3 70B) extracts date, time, venue and link
+  → keep Schedule / Re-schedule / PPT notices, plus any notice about a company with an upcoming event
+  → step 1, Workers AI (Llama 3.3 70B): find the events (date, time, venue, link)
+  → step 2, Workers AI: write each event's short description; links and passcodes are checked against the notice
   → D1: is this new, or a change to an event we already created?
   → Google Calendar insert / patch → ntfy alert if a time is missing or unclear
 ```
@@ -14,12 +15,15 @@ Cron (every 5 min) → Cloudflare Worker → poll Naarad /<topic>/json?since=<cu
 
 | Notice | Calendar |
 |---|---|
-| Schedule / PPT with a clear time | `Google — Online Test`, 14:00–15:30 IST, venue or link as the location, full notice in the description |
+| Schedule / PPT with a clear time | `CAPITAL ONE — PPT`, 11:55 IST, venue or link as the location, and a short description (link, meeting ID, passcode, venue, instructions) |
 | No end time | 1 hour long |
-| Time missing, "TBA", or details in a PDF | All-day `⚠ Google — Online Test (time TBA)`, plus an alert |
-| Re-schedule | The existing event is moved (it isn't duplicated) |
+| Two events of one company and kind | Told apart by a short qualifier: `IXANA — Test (IC Design Engineer)` |
+| Time missing, "TBA", or details in a PDF | All-day `⚠ ZANSKAR — PPT (time TBA)`, plus an alert |
+| Re-schedule | The existing event is moved (not duplicated), keeping details like the link |
+| Postponed, no new time | Renamed `⚠ [MOVED, new time TBA] …`, plus an alert |
+| Later notice with a link or passcode (any subject, e.g. Urgent) | Added to the existing event's description |
 | Cancellation | The event is renamed `[CANCELLED] …` and marked free, but kept |
-| Results, shortlists, CV deadlines, etc. | Ignored |
+| Results, shortlists, CV deadlines, etc. for companies without upcoming events | Ignored |
 
 Colours: tests are red, interviews orange, GDs yellow, PPTs blue.
 
@@ -88,6 +92,8 @@ Check the `[dry-run] would create: …` lines against the notices in your ntfy a
 To run locally instead, put the secrets in `.dev.vars` (see `.dev.vars.example`), then run `npm run db:migrate:local`, then `npm run dev`, then `curl http://localhost:8787/__scheduled`.
 
 ## Day to day
+
+- To regenerate the descriptions of all upcoming events, e.g. after changing a prompt, run `curl.exe -X POST https://placement-calendar-bot.<your-subdomain>.workers.dev/rewrite -H "Authorization: Bearer <RUN_TOKEN>"`.
 
 - `npm run tail` streams the logs.
 - To see what the bot has done:

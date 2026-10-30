@@ -14,7 +14,11 @@ export function memoryStore() {
     async getState(key) { return kv.get(key) ?? null; },
     async setState(key, value) { kv.set(key, value); },
     async getNotice(id) { return notices.get(id) ?? null; },
-    async saveNotice(r) { notices.set(r.noticeId, { ...r }); },
+    async saveNotice(r) {
+      const body = r.body ?? notices.get(r.noticeId)?.body ?? null;
+      notices.set(r.noticeId, { ...r, body });
+    },
+    async getNoticeBody(id) { return notices.get(id)?.body ?? null; },
     async knownEvents(key, today) {
       return events
         .filter((e) => e.company_key === key && e.status === "active" && (!e.starts_at || e.starts_at.slice(0, 10) >= today))
@@ -22,6 +26,9 @@ export function memoryStore() {
     },
     async getEvent(id) { return events.find((e) => e.id === id) ?? null; },
     async findSlot(noticeId, slot) { return events.find((e) => e.notice_id === noticeId && e.slot === slot) ?? null; },
+    async upcomingEvents(today) {
+      return events.filter((e) => e.status === "active" && (!e.starts_at || e.starts_at.slice(0, 10) >= today));
+    },
     async addEvent(e) {
       const id = events.length + 1;
       events.push({ ...e, id, status: "active" });
@@ -69,13 +76,12 @@ export function event(partial: Partial<ExtractedEvent>): ExtractedEvent {
     target_event_id: null,
     kind: "test",
     company: null,
-    title_hint: "Online Test",
+    qualifier: null,
     date: "2026-11-03",
     start: "14:00",
     end: "15:30",
     venue: null,
     link: null,
-    note: null,
     confidence: "high",
     ...partial,
   };

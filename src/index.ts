@@ -1,9 +1,11 @@
 import { ntfyAlert, type Alert } from "./alert";
 import { googleCalendar, type Calendar } from "./calendar";
 import { errorMessage, errorReporter } from "./errors";
+import { llmDescriber } from "./describe";
 import { llmExtractor } from "./extract";
 import { pollNaarad } from "./naarad";
 import { run, type RunSummary } from "./pipeline";
+import { rewriteDescriptions, type RewriteSummary } from "./rewrite";
 import { d1Store, type Store } from "./store";
 
 export interface Env {
@@ -55,32 +57,27 @@ const loggingCalendar: Calendar = {
 
 function setup(env: Env) {
   const dryRun = env.DRY_RUN === "true";
-  const store = d1Store(env.DB);
+  const d1 = d1Store(env.DB);
   const alert: Alert =
     env.ALERT_TOPIC && !dryRun
       ? ntfyAlert(env.ALERT_TOPIC)
       : async (title, message) => log(`[alert] ${title}: ${message}`);
-  const reportError = errorReporter(store, alert, log);
-  return { dryRun, store, alert, reportError };
-}
-
-async function runOnce(env: Env, { dryRun, store, alert, reportError }: ReturnType<typeof setup>): Promise<RunSummary> {
-  const summary = await run({
-    store: dryRun ? readOnly(store) : store,
-    poll: (since) =>
-      pollNaarad({ url: env.NAARAD_URL, topic: env.TOPIC, user: env.NAARAD_USER, pass: env.NAARAD_PASS }, since),
-    extract: llmExtractor({ ai: env.AI, model: env.WORKERS_AI_MODEL }),
+  const reportError = errorReporter(d1, alert, log);
+  const ai = { ai: env.AI, model: env.WORKERS_AI_MODEL };
+  return {
+    dryRun,
+    store: dryRun ? readOnly(d1) : d1,
+    alert,
+    reportError,
+    find: llmExtractor(ai),
+    describe: llmDescriber(ai),
     calendar: dryRun
       ? loggingCalendar
       : googleCalendar({ email: env.GOOGLE_SA_EMAIL, privateKeyPem: env.GOOGLE_SA_KEY, calendarId: env.CALENDAR_ID }),
-    alert,
-    reportError,
+    poll: (since: string) =>
+      pollNaarad({ url: env.NAARAD_URL, topic: env.TOPIC, user: env.NAARAD_USER, pass: env.NAARAD_PASS }, since),
     now: () => new Date(),
-    maxNotices: Number(env.MAX_NOTICES_PER_RUN) || 10,
-    log,
-  });
-  log(`run${dryRun ? " (dry run)" : ""}: ${JSON.stringify(summary)}`);
-  return summary;
+  };
 }
 
 // Anything that fails the whole run (Naarad down, bad credentials, D1 errors) is alerted
@@ -88,10 +85,24 @@ async function runOnce(env: Env, { dryRun, store, alert, reportError }: ReturnTy
 async function guardedRun(env: Env): Promise<RunSummary | { error: string }> {
   const ctx = setup(env);
   try {
-    return await runOnce(env, ctx);
+    const summary = await run({ ...ctx, maxNotices: Number(env.MAX_NOTICES_PER_RUN) || 10, log });
+    log(`run${ctx.dryRun ? " (dry run)" : ""}: ${JSON.stringify(summary)}`);
+    return summary;
   } catch (err) {
     console.error(`run failed: ${err instanceof Error ? err.stack : err}`);
     await ctx.reportError("run failed, retrying in 5 min", err);
+    return { error: errorMessage(err) };
+  }
+}
+
+async function guardedRewrite(env: Env): Promise<RewriteSummary | { error: string }> {
+  const ctx = setup(env);
+  try {
+    const summary = await rewriteDescriptions({ ...ctx, log });
+    log(`rewrite: ${JSON.stringify(summary)}`);
+    return summary;
+  } catch (err) {
+    await ctx.reportError("description rewrite failed", err);
     return { error: errorMessage(err) };
   }
 }
@@ -101,14 +112,17 @@ export default {
     await guardedRun(env);
   },
 
-  // POST /run with `Authorization: Bearer <RUN_TOKEN>` triggers a run by hand.
+  // With `Authorization: Bearer <RUN_TOKEN>`:
+  //   POST /run      runs the pipeline now
+  //   POST /rewrite  regenerates the descriptions of upcoming events
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (request.method !== "POST" || url.pathname !== "/run") return new Response("Not found", { status: 404 });
+    const action = request.method === "POST" ? { "/run": guardedRun, "/rewrite": guardedRewrite }[url.pathname] : undefined;
+    if (!action) return new Response("Not found", { status: 404 });
     if (!env.RUN_TOKEN || request.headers.get("Authorization") !== `Bearer ${env.RUN_TOKEN}`) {
       return new Response("Unauthorized", { status: 401 });
     }
-    const result = await guardedRun(env);
+    const result = await action(env);
     return Response.json(result, { status: "error" in result ? 500 : 200 });
   },
 } satisfies ExportedHandler<Env>;

@@ -4,20 +4,197 @@
   "posted_at": "2026-10-27T12:11:00+05:30",
   "body": "All students eligible for placement are advised to take note of the tentative placement schedule from Tuesday, 27th October, to Friday, 30th October 2026.\nPlease note that this schedule is tentative and is subject to additions and subtractions.\n\nTuesday, 27th October 2026\n1. [PPT: Online] TEXAS INSTRUMENTS (1:00 PM  2:00 PM)\n2. [PPT: Online] DELOITTE USI (6:00 PM  7:00 PM)\n3. [TEST] PLUTUS RESEARCH PRIVATE LIMITED (7:00 PM  9:00 PM)\n\nWednesday, 28th October 2026\n1. [PPT: Online] COMMONWEALTH BANK OF AUSTRALIA (1:00 PM  2:00 PM)\n2. [TEST] IXANA (Profile: Embedded Software Engineer) (6:00 PM  8:00 PM)\n3. [TEST] IXANA (Profiles: IC Design Engineer III, IC Design Engineer II, Silicon Engineer) (8:00 PM  8:30 PM)\n\nThursday, 29th October 2026\n1. [PPT: Online] LAT AEROSPACE (1:00 PM  2:00 PM)\n2. [PPT: Online] YCP AUCTUS (5:00 PM  6:00 PM)\n3. [TEST] SEDEMAC (All Profiles) (6:30 PM  8:30 PM)\n4. [TEST] QI-CAP (Profiles: Quantitative Researcher, Machine Learning & Quantitative Researcher) (9:00 PM  10:30 PM)\n5. [TEST] QI-CAP (Profiles: Hardware Engineer, C++ Developer) (10:30 PM - 11:59 PM)\n\nFriday, 30th October 2026\n1. [PPT: Online] CAPITAL ONE (12:01 PM  1:00 PM)\n2. [PPT: Online] ZANSKAR (5:00 PM  5:30 PM)\n3. [TEST] QI-CAP Assessment 2 (Profiles: Hardware Engineer, C++ Developer) (6:00 PM - 7:30 PM)\n4. [TEST] QUALCOMM (All Profiles) (10:00 PM - 11:59 PM)\n\nNote: The schedule is tentative and subject to change. Links to the PPTs and other relevant details will be shared separately. Room allocations and other necessary instructions for tests will be communicated prior to the respective assessments.\n\nCDC, IIT Kharagpur\n\n27-10-2026 12:11",
   "expect": [
-    { "company": "texas", "kind": "ppt", "date": "2026-10-27", "start": "13:00", "end": "14:00", "confidence": "high" },
-    { "company": "deloitte", "kind": "ppt", "date": "2026-10-27", "start": "18:00", "end": "19:00" },
-    { "company": "plutus", "kind": "test", "date": "2026-10-27", "start": "19:00", "end": "21:00" },
-    { "company": "commonwealth", "kind": "ppt", "date": "2026-10-28", "start": "13:00", "end": "14:00" },
-    { "company": "ixana", "kind": "test", "date": "2026-10-28", "start": "18:00", "end": "20:00" },
-    { "company": "ixana", "kind": "test", "date": "2026-10-28", "start": "20:00", "end": "20:30" },
-    { "company": "lat aerospace", "kind": "ppt", "date": "2026-10-29", "start": "13:00", "end": "14:00" },
-    { "company": "ycp", "kind": "ppt", "date": "2026-10-29", "start": "17:00", "end": "18:00" },
-    { "company": "sedemac", "kind": "test", "date": "2026-10-29", "start": "18:30", "end": "20:30" },
-    { "company": "qi-cap", "kind": "test", "date": "2026-10-29", "start": "21:00", "end": "22:30" },
-    { "company": "qi-cap", "kind": "test", "date": "2026-10-29", "start": "22:30", "end": "23:59" },
-    { "company": "capital one", "kind": "ppt", "date": "2026-10-30", "start": "12:01", "end": "13:00" },
-    { "company": "zanskar", "kind": "ppt", "date": "2026-10-30", "start": "17:00", "end": "17:30" },
-    { "company": "qi-cap", "kind": "test", "date": "2026-10-30", "start": "18:00", "end": "19:30" },
-    { "company": "qualcomm", "kind": "test", "date": "2026-10-30", "start": "22:00", "end": "23:59", "confidence": "high" }
+    {
+      "company": "texas",
+      "kind": "ppt",
+      "date": "2026-10-27",
+      "start": "13:00",
+      "end": "14:00",
+      "confidence": "high",
+      "title": "TEXAS INSTRUMENTS — PPT",
+      "details_max_lines": 5,
+      "details_exclude": [
+        "15 min",
+        "attendance"
+      ]
+    },
+    {
+      "company": "deloitte",
+      "kind": "ppt",
+      "date": "2026-10-27",
+      "start": "18:00",
+      "end": "19:00",
+      "title": "DELOITTE USI — PPT",
+      "details_max_lines": 5,
+      "details_exclude": [
+        "15 min",
+        "attendance"
+      ]
+    },
+    {
+      "company": "plutus",
+      "kind": "test",
+      "date": "2026-10-27",
+      "start": "19:00",
+      "end": "21:00",
+      "title": "PLUTUS RESEARCH — Test",
+      "details_max_lines": 5,
+      "details_exclude": [
+        "15 min",
+        "attendance"
+      ]
+    },
+    {
+      "company": "commonwealth",
+      "kind": "ppt",
+      "date": "2026-10-28",
+      "start": "13:00",
+      "end": "14:00",
+      "title": "COMMONWEALTH BANK OF AUSTRALIA — PPT",
+      "details_max_lines": 5,
+      "details_exclude": [
+        "15 min",
+        "attendance"
+      ]
+    },
+    {
+      "company": "ixana",
+      "kind": "test",
+      "date": "2026-10-28",
+      "start": "18:00",
+      "end": "20:00",
+      "details_max_lines": 5,
+      "details_exclude": [
+        "15 min",
+        "attendance"
+      ]
+    },
+    {
+      "company": "ixana",
+      "kind": "test",
+      "date": "2026-10-28",
+      "start": "20:00",
+      "end": "20:30",
+      "details_max_lines": 5,
+      "details_exclude": [
+        "15 min",
+        "attendance"
+      ]
+    },
+    {
+      "company": "lat aerospace",
+      "kind": "ppt",
+      "date": "2026-10-29",
+      "start": "13:00",
+      "end": "14:00",
+      "title": "LAT AEROSPACE — PPT",
+      "details_max_lines": 5,
+      "details_exclude": [
+        "15 min",
+        "attendance"
+      ]
+    },
+    {
+      "company": "ycp",
+      "kind": "ppt",
+      "date": "2026-10-29",
+      "start": "17:00",
+      "end": "18:00",
+      "title": "YCP AUCTUS — PPT",
+      "details_max_lines": 5,
+      "details_exclude": [
+        "15 min",
+        "attendance"
+      ]
+    },
+    {
+      "company": "sedemac",
+      "kind": "test",
+      "date": "2026-10-29",
+      "start": "18:30",
+      "end": "20:30",
+      "title": "SEDEMAC — Test",
+      "details_max_lines": 5,
+      "details_exclude": [
+        "15 min",
+        "attendance"
+      ]
+    },
+    {
+      "company": "qi-cap",
+      "kind": "test",
+      "date": "2026-10-29",
+      "start": "21:00",
+      "end": "22:30",
+      "details_max_lines": 5,
+      "details_exclude": [
+        "15 min",
+        "attendance"
+      ]
+    },
+    {
+      "company": "qi-cap",
+      "kind": "test",
+      "date": "2026-10-29",
+      "start": "22:30",
+      "end": "23:59",
+      "details_max_lines": 5,
+      "details_exclude": [
+        "15 min",
+        "attendance"
+      ]
+    },
+    {
+      "company": "capital one",
+      "kind": "ppt",
+      "date": "2026-10-30",
+      "start": "12:01",
+      "end": "13:00",
+      "title": "CAPITAL ONE — PPT",
+      "details_max_lines": 5,
+      "details_exclude": [
+        "15 min",
+        "attendance"
+      ]
+    },
+    {
+      "company": "zanskar",
+      "kind": "ppt",
+      "date": "2026-10-30",
+      "start": "17:00",
+      "end": "17:30",
+      "title": "ZANSKAR — PPT",
+      "details_max_lines": 5,
+      "details_exclude": [
+        "15 min",
+        "attendance"
+      ]
+    },
+    {
+      "company": "qi-cap",
+      "kind": "test",
+      "date": "2026-10-30",
+      "start": "18:00",
+      "end": "19:30",
+      "details_max_lines": 5,
+      "details_exclude": [
+        "15 min",
+        "attendance"
+      ]
+    },
+    {
+      "company": "qualcomm",
+      "kind": "test",
+      "date": "2026-10-30",
+      "start": "22:00",
+      "end": "23:59",
+      "confidence": "high",
+      "title": "QUALCOMM — Test",
+      "details_max_lines": 5,
+      "details_exclude": [
+        "15 min",
+        "attendance"
+      ]
+    }
   ]
 }

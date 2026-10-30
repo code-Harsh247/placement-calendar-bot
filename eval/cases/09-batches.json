@@ -4,6 +4,15 @@
   "posted_at": "2026-11-02T15:00:00+05:30",
   "body": "The online test of Fabrikam Capital will be held on 7th November 2026 in two batches:\nBatch A (Roll numbers 21AE10001 - 22CS10050): 10:00 AM - 11:00 AM\nBatch B (Roll numbers 22CS10051 onwards): 11:30 AM - 12:30 PM\nVenue: Nalanda Classroom Complex, NR-121.\n\nCDC, IIT Kharagpur\n\n02-11-2026 15:00",
   "expect": [
-    { "kind": "test", "date": "2026-11-07", "start": "10:00", "end": "12:30" }
+    {
+      "kind": "test",
+      "date": "2026-11-07",
+      "start": "10:00",
+      "end": "12:30",
+      "title": "FABRIKAM CAPITAL — Test",
+      "details_contain": [
+        "NR-121"
+      ]
+    }
   ]
 }

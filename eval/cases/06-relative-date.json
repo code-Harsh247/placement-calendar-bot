@@ -4,6 +4,15 @@
   "posted_at": "2026-10-29T21:40:00+05:30",
   "body": "Interviews for the shortlisted students of Northwind Trading will be conducted tomorrow from 9:30 AM onwards in Room V-1, Vikramshila Complex. Students must report 30 minutes before.\n\nCDC, IIT Kharagpur\n\n29-10-2026 21:40",
   "expect": [
-    { "kind": "interview", "date": "2026-10-30", "start": "09:30", "confidence": "high" }
+    {
+      "kind": "interview",
+      "date": "2026-10-30",
+      "start": "09:30",
+      "confidence": "high",
+      "title": "NORTHWIND TRADING — Interview",
+      "details_contain": [
+        "V-1"
+      ]
+    }
   ]
 }

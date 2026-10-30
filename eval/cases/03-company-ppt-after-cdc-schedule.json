@@ -4,9 +4,24 @@
   "posted_at": "2026-10-30T03:34:00+05:30",
   "body": "The Pre-Placement Talk for Capital One for both the roles, will be held on 30th October, 2026 from 11:55 AM.\n\nLink: https://capitalone.zoom.us/j/00000000000\n\nNote: All placement-registered students are supposed to attend the PPT, without fail. Attendance is compulsory. Students must join the link 15 minutes prior to the scheduled time.\n\nCDC, IIT Kharagpur.\n\n30-10-2026 03:34",
   "known": [
-    { "id": 12, "kind": "ppt", "title": "CAPITAL ONE — Pre-Placement Talk", "starts_at": "2026-10-30T12:01" }
+    {
+      "id": 12,
+      "kind": "ppt",
+      "title": "CAPITAL ONE — Pre-Placement Talk",
+      "starts_at": "2026-10-30T12:01"
+    }
   ],
   "expect": [
-    { "action": "update", "target_event_id": 12, "kind": "ppt", "date": "2026-10-30", "start": "11:55" }
+    {
+      "action": "update",
+      "target_event_id": 12,
+      "kind": "ppt",
+      "date": "2026-10-30",
+      "start": "11:55",
+      "title": "CAPITAL ONE — PPT",
+      "details_contain": [
+        "https://capitalone.zoom.us/j/00000000000"
+      ]
+    }
   ]
 }
